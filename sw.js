@@ -1,6 +1,6 @@
 // Offline support: caches the app shell so the installed app opens without internet.
 // Bump CACHE_VERSION whenever you change any file below, so phones pick up the update.
-const CACHE_VERSION = 'tasks-v11';
+const CACHE_VERSION = 'tasks-v12';
 const APP_SHELL = [
   './',
   './index.html',

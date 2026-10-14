@@ -319,10 +319,83 @@
     text-align: center; font-size: 15px; color: var(--faint);
   }
   .credit strong { color: var(--muted); font-weight: 600; }
+
+  .side-add { display: none; }
+
+  /* ---------- Laptop / desktop layout ---------- */
+  @media (min-width: 1024px) {
+    body { background: #F7FAFA; }
+    .app {
+      max-width: 1400px; padding-bottom: 0;
+      display: grid; grid-template-columns: 320px minmax(0, 1fr);
+    }
+
+    .side {
+      position: sticky; top: 0; height: 100vh; overflow-y: auto;
+      display: flex; flex-direction: column; padding-bottom: 24px;
+      background: var(--bg); border-right: 1px solid var(--border);
+    }
+    header { padding: 32px 24px 20px; background: linear-gradient(180deg, #F0FAF8 0%, var(--bg) 100%); }
+    .header-top { flex-direction: column; gap: 16px; }
+    .header-actions { flex-direction: row; width: 100%; }
+    .header-btn { flex: 1; justify-content: center; margin-top: 0; }
+    .header-btn:hover:not(:disabled) { background: var(--card); }
+    h1 { font-size: 32px; }
+    .progress { margin-top: 18px; }
+
+    .filters { flex-wrap: wrap; overflow: visible; padding: 16px 24px 0; }
+    .filters + .filters { padding-top: 12px; border-top: 1px dashed var(--border); margin-top: 12px; }
+    .filter:hover[aria-pressed="false"] { border-color: var(--primary); color: var(--primary); }
+    .banner { margin: 16px 24px 0; }
+
+    .side-add {
+      display: flex; align-items: center; gap: 10px; margin: 24px 24px 0;
+      background: var(--primary); color: #fff; border: 0; border-radius: var(--radius);
+      padding: 13px 16px; font-size: 16px; font-weight: 600;
+      box-shadow: 0 2px 8px rgba(15, 118, 110, .25);
+    }
+    .side-add:hover { background: var(--primary-pressed); }
+    .side-add svg { width: 20px; height: 20px; }
+    .side-add span { flex: 1; text-align: left; }
+    .side-add kbd {
+      font: inherit; font-size: 13px; padding: 1px 7px; border-radius: 5px;
+      background: rgba(255, 255, 255, .2); border: 1px solid rgba(255, 255, 255, .35);
+    }
+    .fab { display: none; }
+
+    .content { padding: 8px 40px 32px; min-width: 0; }
+    main { padding: 0; }
+    .section-title { margin: 32px 0 12px; }
+    .task-list { grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 12px; }
+    .task-row { height: 100%; }
+    .card {
+      height: 100%; align-items: flex-start; padding: 16px; background: var(--bg);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, .04);
+      transition: transform .2s ease, box-shadow .15s, border-color .15s;
+    }
+    .card:hover { box-shadow: 0 4px 14px rgba(0, 0, 0, .08); border-color: #CBD5E1; }
+    .card.overdue { border-left-color: var(--danger); }
+    .card .check { margin-top: 1px; }
+    /* Delete button appears on hover so the cards stay clean. */
+    .trash { opacity: 0; transition: opacity .15s; }
+    .card:hover .trash, .trash:focus-visible { opacity: 1; }
+
+    .credit { margin: 48px 0 0; }
+
+    .toast { left: auto; right: 32px; bottom: 32px; width: 400px; }
+
+    dialog { width: min(520px, calc(100vw - 64px)); }
+    .dialog-body { padding: 28px 32px; }
+  }
+
+  @media (min-width: 1024px) and (hover: none) {
+    .trash { opacity: 1; }
+  }
 </style>
 </head>
 <body>
 <div class="app">
+  <aside class="side">
   <header>
     <div class="header-top">
       <div>
@@ -345,7 +418,10 @@
   <div class="filters" id="filters" role="toolbar" aria-label="Filter by category" hidden></div>
   <div class="filters" id="people-filters" role="toolbar" aria-label="Filter by team member" hidden></div>
   <div class="banner" id="banner" role="alert" hidden></div>
+  <button class="side-add" id="side-add-btn" type="button"></button>
+  </aside>
 
+  <div class="content">
   <main>
     <h2 class="section-title">To Do (<span id="pending-count">0</span>)</h2>
     <ul class="task-list" id="pending-list"></ul>
@@ -361,6 +437,7 @@
   </main>
 
   <footer class="credit">Created by <strong>CA Pranav Mishra</strong></footer>
+  </div>
 
   <button class="fab" id="add-btn" type="button" aria-label="Add task"></button>
   <div class="toast" id="toast" role="status" hidden>
@@ -618,6 +695,7 @@
     completedList: $('completed-list'),
     completedCount: $('completed-count'),
     addBtn: $('add-btn'),
+    sideAddBtn: $('side-add-btn'),
     toast: $('toast'),
     toastText: $('toast-text'),
     toastUndo: $('toast-undo'),
@@ -660,6 +738,7 @@
     importInput: $('import-input'),
   };
   els.addBtn.innerHTML = ICONS.plus;
+  els.sideAddBtn.innerHTML = ICONS.plus + '<span>New task</span><kbd>N</kbd>';
   els.taskClose.innerHTML = ICONS.close;
   els.settingsClose.innerHTML = ICONS.close;
   els.settingsBtn.innerHTML = ICONS.settings + '<span>Settings</span>';
@@ -1060,7 +1139,9 @@
     els.empty.hidden = pending.length > 0;
     if (activeFilter === 'all' && activePerson === ALL_PEOPLE) {
       els.emptyTitle.textContent = 'All caught up';
-      els.emptyText.textContent = 'Tap + to add a task for today.';
+      els.emptyText.textContent = window.matchMedia('(min-width: 1024px)').matches
+        ? 'Click "New task" or press N to add a task for today.'
+        : 'Tap + to add a task for today.';
     } else {
       els.emptyTitle.textContent = 'Nothing pending' +
         (activePerson !== ALL_PEOPLE ? ' for ' + personLabel(activePerson) : '') +
@@ -1445,6 +1526,18 @@
   }
 
   els.addBtn.addEventListener('click', () => openTaskDialog(null));
+  els.sideAddBtn.addEventListener('click', () => openTaskDialog(null));
+
+  // Laptop shortcut: press N to add a task (when not typing and no dialog is open).
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'n' && e.key !== 'N') return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (document.querySelector('dialog[open]')) return;
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) return;
+    e.preventDefault();
+    openTaskDialog(null);
+  });
   els.taskClose.addEventListener('click', closeTaskDialog);
   els.taskCancel.addEventListener('click', closeTaskDialog);
   els.taskDialog.addEventListener('click', (e) => {
