@@ -77,6 +77,14 @@
     scrollbar-width: none;
   }
   .filters::-webkit-scrollbar { display: none; }
+  .filters.dragging { cursor: grabbing; user-select: none; }
+  /* Mouse users get a thin scrollbar so they can see and grab the overflow. */
+  @media (hover: hover) and (pointer: fine) {
+    .filters { scrollbar-width: thin; padding-bottom: 4px; }
+    .filters::-webkit-scrollbar { display: block; height: 6px; }
+    .filters::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+    .filters:hover::-webkit-scrollbar-thumb { background: var(--muted); }
+  }
   .filter {
     flex: none; display: inline-flex; align-items: center; gap: 6px;
     background: var(--bg); color: var(--muted); border: 1px solid var(--border);
@@ -2162,6 +2170,40 @@
   render();
   updateAlert();
   setInterval(tick, CHECK_INTERVAL_MS);
+
+  // Let mouse users scroll the filter chip rows: vertical wheel scrolls sideways,
+  // and click-and-drag pans the row (a drag doesn't count as a chip click).
+  document.querySelectorAll('.filters').forEach((row) => {
+    row.addEventListener('wheel', (e) => {
+      if (row.scrollWidth <= row.clientWidth || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      row.scrollLeft += e.deltaY;
+    }, { passive: false });
+
+    let startX = 0, startScroll = 0, dragging = false, moved = false;
+    row.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'mouse' || e.button !== 0) return;
+      dragging = true; moved = false;
+      startX = e.clientX; startScroll = row.scrollLeft;
+    });
+    row.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - startX;
+      if (!moved && Math.abs(dx) > 5) {
+        moved = true;
+        row.classList.add('dragging');
+        row.setPointerCapture(e.pointerId);
+      }
+      if (moved) row.scrollLeft = startScroll - dx;
+    });
+    const endDrag = () => { dragging = false; row.classList.remove('dragging'); };
+    row.addEventListener('pointerup', endDrag);
+    row.addEventListener('pointercancel', endDrag);
+    row.addEventListener('click', (e) => {
+      if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; }
+    }, true);
+  });
+
   // Browsers throttle timers in background tabs; re-check as soon as the app is visible.
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) tick();
