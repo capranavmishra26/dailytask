@@ -84,6 +84,8 @@
   }
   .filter[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: #fff; }
   .filter .swatch { width: 8px; height: 8px; border-radius: 50%; }
+  .filter svg { width: 15px; height: 15px; }
+  .filters + .filters { padding-top: 8px; }
 
   .banner {
     margin: 12px 16px 0; padding: 10px 12px; border-radius: var(--radius);
@@ -150,6 +152,9 @@
   .pill.overdue { background: var(--danger); color: #fff; }
   .pill.high { background: var(--high-soft); color: var(--high); }
   .card.completed .pill.category { opacity: .5; }
+  .pill.person { display: inline-flex; align-items: center; gap: 4px; background: #EEF2FF; color: #4338CA; }
+  .pill.person svg { width: 13px; height: 13px; }
+  .card.completed .pill.person { opacity: .5; }
   .trash {
     flex: none; background: none; border: 0; padding: 6px; color: var(--faint); border-radius: 6px;
   }
@@ -283,6 +288,23 @@
   .share-opt.wa svg { color: #25D366; }
   .share-opt.mail svg { color: #0284C7; }
   .share-note { margin-top: 12px; font-size: 15px; }
+  #share-person-wrap label { margin-top: 4px; }
+  #share-person-wrap { margin-bottom: 12px; }
+
+  .team-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .team-chip {
+    display: inline-flex; align-items: center; gap: 6px; background: #EEF2FF; color: #4338CA;
+    border-radius: 999px; padding: 6px 6px 6px 12px; font-size: 15px; font-weight: 600;
+  }
+  .team-chip button {
+    background: rgba(67,56,202,.12); color: #4338CA; border: 0; border-radius: 50%;
+    width: 24px; height: 24px; padding: 0; display: grid; place-items: center;
+  }
+  .team-chip button svg { width: 14px; height: 14px; }
+  .team-empty { color: var(--faint); font-size: 15px; }
+  .team-add { display: flex; gap: 8px; margin-top: 10px; }
+  .team-add input { flex: 1; }
+  .team-add .btn { flex: none; padding: 0 18px; }
 
   .credit {
     margin: 40px 16px 0; padding-top: 16px; border-top: 1px solid var(--border);
@@ -313,6 +335,7 @@
     </div>
   </header>
   <div class="filters" id="filters" role="toolbar" aria-label="Filter by category" hidden></div>
+  <div class="filters" id="people-filters" role="toolbar" aria-label="Filter by team member" hidden></div>
   <div class="banner" id="banner" role="alert" hidden></div>
 
   <main>
@@ -351,6 +374,9 @@
 
     <label for="notes-input">Notes <span style="text-transform:none;font-weight:400">(optional)</span></label>
     <textarea id="notes-input" maxlength="1000" rows="2" placeholder="Client name, phone number, file location, meeting link…"></textarea>
+
+    <label for="assignee-input">Assign to</label>
+    <select id="assignee-input"></select>
 
     <label for="due-input">Due Date &amp; Time</label>
     <input type="datetime-local" id="due-input">
@@ -432,6 +458,11 @@
       <button class="icon-btn" type="button" id="share-close" aria-label="Close"></button>
     </div>
 
+    <div id="share-person-wrap" hidden>
+      <label for="share-person">Share tasks of</label>
+      <select id="share-person"></select>
+    </div>
+
     <div class="share-preview-wrap" id="share-preview-wrap">
       <span class="loading" id="share-loading">Preparing image…</span>
       <img id="share-preview" alt="Preview of the task list image" hidden>
@@ -483,6 +514,16 @@
         </span>
       </div>
       <button type="button" class="link-btn" id="test-sound">Play test sound</button>
+    </section>
+
+    <section class="settings-section">
+      <h3>Team members</h3>
+      <p class="settings-text">Add people to assign tasks to them and share each person's list separately.</p>
+      <div class="team-list" id="team-list"></div>
+      <form class="team-add" id="team-add-form" novalidate>
+        <input type="text" id="team-input" maxlength="40" placeholder="Name, e.g. Rahul" autocomplete="off" aria-label="Team member name">
+        <button type="submit" class="btn btn-primary">Add</button>
+      </form>
     </section>
 
     <section class="settings-section">
@@ -539,6 +580,7 @@
     whatsapp: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.47 14.38c-.3-.15-1.75-.86-2.02-.96-.27-.1-.47-.15-.67.15-.2.3-.77.96-.94 1.16-.17.2-.35.22-.64.07-.3-.15-1.25-.46-2.38-1.47-.88-.79-1.47-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.6-.92-2.2-.24-.58-.49-.5-.67-.5h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.07c.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.7.63.71.23 1.36.2 1.87.12.57-.08 1.75-.72 2-1.41.25-.7.25-1.29.17-1.41-.07-.13-.27-.2-.57-.35zM12.05 21.5h-.01a9.4 9.4 0 0 1-4.8-1.31l-.34-.2-3.57.94.95-3.48-.22-.36a9.43 9.43 0 0 1-1.45-5.03c0-5.2 4.24-9.44 9.45-9.44 2.52 0 4.89.99 6.67 2.77a9.37 9.37 0 0 1 2.76 6.68c0 5.2-4.24 9.43-9.44 9.43zm8.03-17.47A11.3 11.3 0 0 0 12.05.7C5.79.7.7 5.79.7 12.04c0 2 .52 3.95 1.52 5.67L.6 23.3l5.73-1.5a11.3 11.3 0 0 0 5.72 1.46c6.25 0 11.34-5.09 11.34-11.34 0-3.03-1.18-5.88-3.31-8z"/></svg>',
     settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>',
     share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>',
+    user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>',
     mail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6l-10 7L2 6"/></svg>',
   };
 
@@ -551,6 +593,13 @@
     progressTrack: $('progress-track'),
     progressFill: $('progress-fill'),
     filters: $('filters'),
+    peopleFilters: $('people-filters'),
+    assigneeInput: $('assignee-input'),
+    sharePersonWrap: $('share-person-wrap'),
+    sharePerson: $('share-person'),
+    teamList: $('team-list'),
+    teamAddForm: $('team-add-form'),
+    teamInput: $('team-input'),
     banner: $('banner'),
     pendingList: $('pending-list'),
     pendingCount: $('pending-count'),
@@ -619,7 +668,7 @@
 
   let tasks = [];
   let canSave = true;
-  let settings = { sound: true };
+  let settings = { sound: true, team: [] };
 
   function showBanner(message) {
     els.banner.textContent = message;
@@ -635,6 +684,7 @@
       category: 'none',
       remindBefore: 0,
       reminderAlerted: false,
+      assignee: '',
     }, task);
   }
 
@@ -673,8 +723,40 @@
     try {
       const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
       if (saved && typeof saved.sound === 'boolean') settings.sound = saved.sound;
+      if (saved && Array.isArray(saved.team)) {
+        saved.team.forEach((n) => { if (typeof n === 'string') addTeamMember(n, true); });
+      }
     } catch (e) { /* keep defaults */ }
   }
+
+  /* ---------- Team ---------- */
+
+  const ALL_PEOPLE = '__all__';   // filter / share scope: everyone
+  const NEW_MEMBER = '__new__';   // "Assign to" option that adds a person
+  const sameName = (a, b) => a.toLowerCase() === b.toLowerCase();
+
+  // Adds a name to the team (ignoring case duplicates) and returns the stored spelling.
+  function addTeamMember(name, skipSave) {
+    const clean = String(name).replace(/\s+/g, ' ').trim().slice(0, 40);
+    if (!clean) return '';
+    const existing = settings.team.find((n) => sameName(n, clean));
+    if (existing) return existing;
+    settings.team.push(clean);
+    if (!skipSave) saveSettings();
+    return clean;
+  }
+
+  // Team list plus anyone still assigned a task (e.g. from an imported backup).
+  function teamNames() {
+    const names = settings.team.slice();
+    tasks.forEach((t) => {
+      if (t.assignee && !names.some((n) => sameName(n, t.assignee))) names.push(t.assignee);
+    });
+    return names;
+  }
+
+  const personLabel = (p) => (p === ALL_PEOPLE ? 'Everyone' : p || 'Myself');
+  const matchesPerson = (t, p) => p === ALL_PEOPLE || (t.assignee || '') === p;
 
   function saveSettings() {
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { /* non-critical */ }
@@ -697,6 +779,7 @@
       notes: '',
       category: 'none',
       remindBefore: 0,
+      assignee: '',
       createdAt: new Date().toISOString(),
     }, fields);
   }
@@ -731,6 +814,7 @@
         priority: task.priority,
         repeat: task.repeat,
         remindBefore: task.remindBefore,
+        assignee: task.assignee || '',
         dueDate: nextOccurrence(task.dueDate, task.repeat).toISOString(),
       });
       changes.nextId = next.id;
@@ -928,6 +1012,7 @@
   let lastSignature = '';
   let dragging = false;
   let activeFilter = 'all';
+  let activePerson = ALL_PEOPLE;
 
   // Changes when the overdue set or the calendar day changes, so the clock tick
   // only re-renders the list when something visible would differ.
@@ -955,20 +1040,24 @@
 
     renderProgress(today);
     renderFilters();
+    renderPeopleFilters();
 
-    const matchesFilter = (t) => activeFilter === 'all' || t.category === activeFilter;
+    const matchesFilter = (t) =>
+      (activeFilter === 'all' || t.category === activeFilter) && matchesPerson(t, activePerson);
     const pending = allPending.filter(matchesFilter).sort(byDueThenPriority);
     const completed = allCompleted.filter(matchesFilter).sort(byDueThenPriority);
 
     els.pendingCount.textContent = pending.length;
     els.pendingList.replaceChildren(...pending.map((t) => taskElement(t, isOverdue(t, now))));
     els.empty.hidden = pending.length > 0;
-    if (activeFilter === 'all') {
+    if (activeFilter === 'all' && activePerson === ALL_PEOPLE) {
       els.emptyTitle.textContent = 'All caught up';
       els.emptyText.textContent = 'Tap + to add a task for today.';
     } else {
-      els.emptyTitle.textContent = 'Nothing pending in ' + CATEGORIES[activeFilter].label;
-      els.emptyText.textContent = 'Choose "All" to see every task.';
+      els.emptyTitle.textContent = 'Nothing pending' +
+        (activePerson !== ALL_PEOPLE ? ' for ' + personLabel(activePerson) : '') +
+        (activeFilter !== 'all' ? ' in ' + CATEGORIES[activeFilter].label : '');
+      els.emptyText.textContent = 'Choose "All" / "Everyone" to see every task.';
     }
 
     els.completedCount.textContent = completed.length;
@@ -1027,6 +1116,34 @@
     );
   }
 
+  // Shows "Everyone", "Myself" and each team member, once a team exists.
+  function renderPeopleFilters() {
+    const names = teamNames();
+    if (activePerson !== ALL_PEOPLE && activePerson !== '' && !names.includes(activePerson)) activePerson = ALL_PEOPLE;
+    els.peopleFilters.hidden = names.length === 0;
+    if (names.length === 0) { activePerson = ALL_PEOPLE; return; }
+
+    const makeChip = (key, label, withIcon) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'filter';
+      btn.setAttribute('aria-pressed', String(activePerson === key));
+      if (withIcon) btn.insertAdjacentHTML('beforeend', ICONS.user);
+      btn.append(label);
+      btn.addEventListener('click', () => {
+        activePerson = key;
+        render();
+      });
+      return btn;
+    };
+
+    els.peopleFilters.replaceChildren(
+      makeChip(ALL_PEOPLE, 'Everyone', false),
+      makeChip('', 'Myself', true),
+      ...names.map((n) => makeChip(n, n, true)),
+    );
+  }
+
   function taskElement(task, overdue) {
     const category = has(CATEGORIES, task.category) ? CATEGORIES[task.category] : null;
     const li = document.createElement('li');
@@ -1038,6 +1155,7 @@
         '<div class="body" role="button" tabindex="0">' +
           '<div class="title-row"><span class="prio-dot ' + task.priority + '"></span><span class="title"></span></div>' +
           '<div class="meta">' +
+            (task.assignee ? '<span class="pill person">' + ICONS.user + '<span class="person-name"></span></span>' : '') +
             (category ? '<span class="pill category"></span>' : '') +
             '<span class="meta-item due-item">' + ICONS.clock + '<span class="due"></span></span>' +
             (task.repeat !== 'none' ? '<span class="meta-item">' + ICONS.repeat + '<span class="repeat"></span></span>' : '') +
@@ -1069,6 +1187,8 @@
     }
     const notes = li.querySelector('.notes-preview');
     if (notes) notes.textContent = task.notes;
+    const person = li.querySelector('.person-name');
+    if (person) person.textContent = task.assignee;
 
     check.setAttribute('aria-checked', String(task.completed));
     check.setAttribute('aria-label', 'Mark "' + task.title + '" as ' + (task.completed ? 'not done' : 'done'));
@@ -1263,6 +1383,29 @@
     return checked ? checked.value : 'medium';
   }
 
+  let assigneeValue = '';
+
+  function fillAssigneeOptions(selected) {
+    const names = teamNames();
+    if (selected && !names.includes(selected)) names.push(selected);
+    els.assigneeInput.replaceChildren(
+      new Option('Myself', ''),
+      ...names.map((n) => new Option(n, n)),
+      new Option('+ Add team member…', NEW_MEMBER),
+    );
+    els.assigneeInput.value = selected || '';
+    assigneeValue = els.assigneeInput.value;
+  }
+
+  els.assigneeInput.addEventListener('change', () => {
+    if (els.assigneeInput.value !== NEW_MEMBER) {
+      assigneeValue = els.assigneeInput.value;
+      return;
+    }
+    const name = addTeamMember(window.prompt('Team member name') || '');
+    fillAssigneeOptions(name || assigneeValue);
+  });
+
   function openTaskDialog(id) {
     const task = id ? findTask(id) : null;
     if (id && !task) return;
@@ -1283,6 +1426,7 @@
     els.remindInput.value = String(task ? task.remindBefore : 0);
     setPriority(task ? task.priority : 'medium');
     els.repeatInput.value = task ? task.repeat : 'none';
+    fillAssigneeOptions(task ? task.assignee : (activePerson !== ALL_PEOPLE ? activePerson : ''));
 
     els.taskDialog.showModal();
     if (!task) els.titleInput.focus();
@@ -1337,6 +1481,7 @@
       priority: getPriority(),
       repeat: els.repeatInput.value,
       remindBefore: remindBefore,
+      assignee: els.assigneeInput.value === NEW_MEMBER ? '' : els.assigneeInput.value,
     };
     const id = editingId;
     closeTaskDialog();
@@ -1359,18 +1504,78 @@
   function openSettings() {
     if (els.alertDialog.open) els.alertDialog.close();
     els.soundToggle.checked = settings.sound;
+    els.teamInput.value = '';
+    renderTeamList();
     els.settingsDialog.showModal();
   }
+
+  function renderTeamList() {
+    if (settings.team.length === 0) {
+      const empty = document.createElement('span');
+      empty.className = 'team-empty';
+      empty.textContent = 'No team members yet.';
+      els.teamList.replaceChildren(empty);
+      return;
+    }
+    els.teamList.replaceChildren(...settings.team.map((name) => {
+      const chip = document.createElement('span');
+      chip.className = 'team-chip';
+      chip.append(name);
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.innerHTML = ICONS.close;
+      remove.setAttribute('aria-label', 'Remove ' + name);
+      remove.addEventListener('click', () => removeTeamMember(name));
+      chip.append(remove);
+      return chip;
+    }));
+  }
+
+  // Their tasks stay, but go back to "Myself".
+  function removeTeamMember(name) {
+    const count = tasks.filter((t) => t.assignee === name).length;
+    if (count && !window.confirm('Remove ' + name + '? Their ' + count + ' task' +
+      (count === 1 ? '' : 's') + ' will be moved to "Myself".')) return;
+    settings.team = settings.team.filter((n) => n !== name);
+    saveSettings();
+    if (count) {
+      tasks = tasks.map((t) => (t.assignee === name ? Object.assign({}, t, { assignee: '' }) : t));
+      commit();
+    } else {
+      render();
+    }
+    renderTeamList();
+  }
+
+  els.teamAddForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = addTeamMember(els.teamInput.value);
+    if (!name) { els.teamInput.focus(); return; }
+    els.teamInput.value = '';
+    renderTeamList();
+    render();
+    showToast(name + ' added to team');
+  });
 
   /* ---------- Share (WhatsApp / email, image + text) ---------- */
 
   const longDate = (d) => d.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
-  const shareTitle = () => 'My Tasks – ' + longDate(new Date());
+  let shareScope = ALL_PEOPLE; // whose tasks the share includes
+
+  function shareHeading() {
+    if (shareScope === ALL_PEOPLE) return teamNames().length ? 'Team Tasks' : 'My Tasks';
+    return shareScope ? 'Tasks for ' + shareScope : 'My Tasks';
+  }
+  const shareTitle = () => shareHeading() + ' – ' + longDate(new Date());
+  // Only show who each task belongs to when sharing everyone's tasks.
+  const showAssignee = (t) => shareScope === ALL_PEOPLE && !!t.assignee;
 
   function shareLists() {
+    const scoped = tasks.filter((t) => matchesPerson(t, shareScope));
     return {
-      pending: tasks.filter((t) => !t.completed).sort(byDueThenPriority),
-      completed: tasks.filter((t) => t.completed).sort(byDueThenPriority),
+      all: scoped,
+      pending: scoped.filter((t) => !t.completed).sort(byDueThenPriority),
+      completed: scoped.filter((t) => t.completed).sort(byDueThenPriority),
     };
   }
 
@@ -1388,13 +1593,17 @@
       const flags = [];
       if (t.priority === 'high') flags.push('🔴 High');
       if (isOverdue(t, now)) flags.push('⚠️ Overdue');
+      if (showAssignee(t)) flags.unshift('👤 ' + t.assignee);
       lines.push((i + 1) + '. ' + t.title + ' — ' + formatDue(t.dueDate) + (flags.length ? ' ' + flags.join(' ') : ''));
       if (!wa && t.notes) lines.push('   Note: ' + t.notes.replace(/\s+/g, ' '));
     });
 
     if (completed.length) {
       lines.push('', bold('Completed (' + completed.length + ')'));
-      completed.forEach((t) => lines.push(wa ? '✅ ~' + t.title + '~' : '✓ ' + t.title));
+      completed.forEach((t) => {
+        const who = showAssignee(t) ? ' (' + t.assignee + ')' : '';
+        lines.push((wa ? '✅ ~' + t.title + '~' : '✓ ' + t.title) + who);
+      });
     }
     lines.push('', '— Shared from Daily Office Tasks');
     return lines.join('\n');
@@ -1464,9 +1673,10 @@
   function buildShareCanvas() {
     const now = Date.now();
     const today = new Date(now);
-    const { pending, completed } = shareLists();
+    const { all, pending, completed } = shareLists();
     const overdueCount = pending.filter((t) => isOverdue(t, now)).length;
-    const todays = tasks.filter((t) => sameDay(new Date(t.dueDate), today));
+    const todays = all.filter((t) => sameDay(new Date(t.dueDate), today));
+    const heading = shareHeading();
     const todaysDone = todays.filter((t) => t.completed).length;
 
     const measure = document.createElement('canvas').getContext('2d');
@@ -1496,7 +1706,7 @@
         ctx.fillText(longDate(today).toUpperCase(), IMG_P, y + 84);
         ctx.fillStyle = '#FFFFFF';
         ctx.font = imgFont(800, 76);
-        ctx.fillText('My Tasks', IMG_P, y + 168);
+        ctx.fillText(wrapLines(ctx, heading, cardW, 1)[0] || '', IMG_P, y + 168);
         ctx.font = imgFont(500, 32);
         ctx.fillStyle = 'rgba(255,255,255,0.92)';
         let stats = pending.length + ' pending  ·  ' + completed.length + ' done';
@@ -1558,6 +1768,7 @@
       const pills = [overdue
         ? { text: 'Overdue · ' + formatDue(t.dueDate), fg: '#DC2626', bg: '#FEE2E2' }
         : { text: 'Due ' + formatDue(t.dueDate), fg: '#0F766E', bg: '#CCFBF1' }];
+      if (showAssignee(t)) pills.unshift({ text: t.assignee, fg: '#4338CA', bg: '#EEF2FF' });
       if (has(CATEGORIES, t.category)) {
         const c = CATEGORIES[t.category];
         pills.push({ text: c.label, fg: c.color, bg: c.color + '1F' });
@@ -1633,7 +1844,7 @@
       blocks.push(sectionTitle('Completed (' + completed.length + ')'));
       completed.slice(0, IMG_MAX_DONE).forEach((t) => {
         measure.font = imgFont(500, 30);
-        const title = wrapLines(measure, t.title, cardW - 120, 1)[0] || '';
+        const title = wrapLines(measure, t.title + (showAssignee(t) ? ' (' + t.assignee + ')' : ''), cardW - 120, 1)[0] || '';
         const titleW = measure.measureText(title).width;
         blocks.push({
           h: 86,
@@ -1706,17 +1917,44 @@
   // synchronous (some browsers block navigator.share after an async wait).
   function openShare() {
     if (els.alertDialog.open) els.alertDialog.close();
+    const names = teamNames();
+    shareScope = activePerson;
+    els.sharePersonWrap.hidden = names.length === 0;
+    const countFor = (p) => tasks.filter((t) => matchesPerson(t, p)).length;
+    const option = (p) => new Option(personLabel(p) + ' (' + countFor(p) + ')', p);
+    els.sharePerson.replaceChildren(option(ALL_PEOPLE), option(''), ...names.map(option));
+    els.sharePerson.value = shareScope;
+    els.shareDialog.showModal();
+    prepareShareImage();
+  }
+
+  els.sharePerson.addEventListener('change', () => {
+    shareScope = els.sharePerson.value;
+    prepareShareImage();
+  });
+
+  function shareFileName() {
+    const who = shareScope === ALL_PEOPLE ? 'team' : shareScope
+      ? shareScope.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'member'
+      : 'my';
+    return who + '-tasks-' + formatDateYMD(new Date()) + '.png';
+  }
+
+  let shareBuild = 0;
+
+  function prepareShareImage() {
+    const build = ++shareBuild; // ignore a slower, older build if the person was changed quickly
     shareFile = null;
     setImageButtons(false);
     els.sharePreview.hidden = true;
     els.shareLoading.hidden = false;
     els.shareLoading.textContent = 'Preparing image…';
-    els.shareDialog.showModal();
 
     try {
       buildShareCanvas().toBlob((blob) => {
+        if (build !== shareBuild) return;
         if (!blob) { els.shareLoading.textContent = 'Image could not be created. Text sharing still works.'; return; }
-        shareFile = new File([blob], 'my-tasks-' + formatDateYMD(new Date()) + '.png', { type: 'image/png' });
+        shareFile = new File([blob], shareFileName(), { type: 'image/png' });
         if (sharePreviewUrl) URL.revokeObjectURL(sharePreviewUrl);
         sharePreviewUrl = URL.createObjectURL(blob);
         els.sharePreview.src = sharePreviewUrl;
@@ -1826,12 +2064,13 @@
 
   els.csvBtn.addEventListener('click', () => {
     const now = Date.now();
-    const header = ['Title', 'Category', 'Priority', 'Due Date', 'Due Time', 'Status', 'Repeat', 'Reminder', 'Notes', 'Created'];
+    const header = ['Title', 'Assigned To', 'Category', 'Priority', 'Due Date', 'Due Time', 'Status', 'Repeat', 'Reminder', 'Notes', 'Created'];
     const rows = tasks.slice().sort(byDueThenPriority).map((t) => {
       const due = new Date(t.dueDate);
       const status = t.completed ? 'Done' : isOverdue(t, now) ? 'Overdue' : 'Pending';
       return [
         t.title,
+        t.assignee || 'Myself',
         has(CATEGORIES, t.category) ? CATEGORIES[t.category].label : '',
         PRIORITY_LABELS[t.priority] || '',
         formatDateYMD(due),
@@ -1854,8 +2093,9 @@
   els.exportBtn.addEventListener('click', () => {
     const data = JSON.stringify({
       app: 'daily-office-tasks',
-      version: 2,
+      version: 3,
       exportedAt: new Date().toISOString(),
+      team: settings.team,
       tasks: tasks,
     }, null, 2);
     downloadFile('office-tasks-backup-' + formatDateYMD(new Date()) + '.json', data, 'application/json');
@@ -1880,6 +2120,7 @@
       notes: typeof t.notes === 'string' ? t.notes.slice(0, 1000) : '',
       category: has(CATEGORIES, t.category) ? t.category : 'none',
       remindBefore: REMIND_OPTIONS.indexOf(remind) !== -1 ? remind : 0,
+      assignee: typeof t.assignee === 'string' ? t.assignee.replace(/\s+/g, ' ').trim().slice(0, 40) : '',
       createdAt: typeof t.createdAt === 'string' ? t.createdAt : new Date().toISOString(),
       nextId: typeof t.nextId === 'string' ? t.nextId : undefined,
     };
@@ -1896,6 +2137,10 @@
       if (!Array.isArray(list)) throw new Error('not a backup');
       const imported = list.map(sanitizeImported).filter(Boolean);
       if (imported.length === 0) throw new Error('no tasks');
+      if (parsed && Array.isArray(parsed.team)) {
+        parsed.team.forEach((n) => { if (typeof n === 'string') addTeamMember(n, true); });
+        saveSettings();
+      }
 
       const existingIds = new Set(tasks.map((t) => t.id));
       const added = imported.filter((t) => !existingIds.has(t.id));
