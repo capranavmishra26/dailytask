@@ -612,6 +612,12 @@
     </section>
 
     <section class="settings-section">
+      <h3>Email sign-off</h3>
+      <p class="settings-text">Your name appears at the end of task emails sent to your team.</p>
+      <input type="text" id="sender-name" maxlength="60" placeholder="Your name, e.g. Pranav Mishra" autocomplete="name" aria-label="Your name for email sign-off" style="margin-top:10px">
+    </section>
+
+    <section class="settings-section">
       <h3>Export to Excel</h3>
       <p class="settings-text">Download all tasks as a CSV file that opens in Excel or Google Sheets.</p>
       <button type="button" class="btn btn-primary btn-block" id="csv-btn">Export to Excel (CSV)</button>
@@ -731,6 +737,7 @@
     settingsDialog: $('settings-dialog'),
     settingsClose: $('settings-close'),
     soundToggle: $('sound-toggle'),
+    senderName: $('sender-name'),
     testSound: $('test-sound'),
     csvBtn: $('csv-btn'),
     exportBtn: $('export-btn'),
@@ -755,7 +762,7 @@
 
   let tasks = [];
   let canSave = true;
-  let settings = { sound: true, team: [] };
+  let settings = { sound: true, team: [], senderName: '' };
 
   function showBanner(message) {
     els.banner.textContent = message;
@@ -810,6 +817,7 @@
     try {
       const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
       if (saved && typeof saved.sound === 'boolean') settings.sound = saved.sound;
+      if (saved && typeof saved.senderName === 'string') settings.senderName = saved.senderName;
       if (saved && Array.isArray(saved.team)) {
         saved.team.forEach((n) => { if (typeof n === 'string') addTeamMember(n, true); });
       }
@@ -1605,6 +1613,7 @@
   function openSettings() {
     if (els.alertDialog.open) els.alertDialog.close();
     els.soundToggle.checked = settings.sound;
+    els.senderName.value = settings.senderName;
     els.teamInput.value = '';
     renderTeamList();
     els.settingsDialog.showModal();
@@ -1707,6 +1716,83 @@
       });
     }
     lines.push('', '— Shared from Daily Office Tasks');
+    return lines.join('\n');
+  }
+
+  /* Email: a ready-to-send professional draft. Dates are absolute, since the
+     mail may be read on a later day ("Today" would then be wrong). */
+
+  const fullDate = (d) => d.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const fullDue = (iso) => {
+    const d = new Date(iso);
+    return d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) + ', ' + formatTime(d);
+  };
+  const plural = (n, word) => n + ' ' + word + (n === 1 ? '' : 's');
+
+  function emailSubject() {
+    const { pending } = shareLists();
+    const date = new Date().toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
+    if (shareScope === ALL_PEOPLE) return 'Team Task Update – ' + plural(pending.length, 'Pending Task') + ' – ' + date;
+    if (shareScope) return 'Action Required: Tasks Assigned to ' + shareScope + ' – ' + date;
+    return 'Task Status Update – ' + date;
+  }
+
+  function emailBody() {
+    const now = Date.now();
+    const { pending, completed } = shareLists();
+    const overdue = pending.filter((t) => isOverdue(t, now)).length;
+    const rule = '------------------------------------------------------------';
+    const lines = [];
+
+    if (shareScope === ALL_PEOPLE) {
+      lines.push('Dear Team,', '',
+        'Please find below the current status of our team tasks as on ' + fullDate(new Date()) + '.',
+        'Kindly review the items assigned to you and ensure they are completed by the due dates mentioned.');
+    } else if (shareScope) {
+      lines.push('Dear ' + shareScope + ',', '',
+        'Please find below the tasks assigned to you as on ' + fullDate(new Date()) + '.',
+        'Kindly review them and ensure each is completed by the due date mentioned.');
+    } else {
+      lines.push('Hello,', '',
+        'Please find below my current task status as on ' + fullDate(new Date()) + '.');
+    }
+
+    lines.push('', 'SUMMARY',
+      '• Pending: ' + pending.length + (overdue ? '  (Overdue: ' + overdue + ')' : ''),
+      '• Completed: ' + completed.length);
+
+    lines.push('', 'PENDING TASKS', rule);
+    if (pending.length === 0) lines.push('No pending tasks. All items have been completed.');
+    pending.forEach((t, i) => {
+      if (i) lines.push('');
+      lines.push((i + 1) + '. ' + t.title);
+      if (showAssignee(t)) lines.push('   Assigned to : ' + t.assignee);
+      lines.push('   Due date    : ' + fullDue(t.dueDate));
+      if (t.priority) lines.push('   Priority    : ' + (PRIORITY_LABELS[t.priority] || t.priority));
+      lines.push('   Status      : ' + (isOverdue(t, now) ? 'OVERDUE' : 'Pending'));
+      if (t.notes) lines.push('   Remarks     : ' + t.notes.replace(/\s+/g, ' ').trim());
+    });
+    lines.push(rule);
+
+    if (completed.length) {
+      lines.push('', 'COMPLETED TASKS', rule);
+      completed.forEach((t, i) => {
+        lines.push((i + 1) + '. ' + t.title + (showAssignee(t) ? ' – ' + t.assignee : ''));
+      });
+      lines.push(rule);
+    }
+
+    lines.push('');
+    if (overdue) {
+      lines.push(plural(overdue, 'task') + (overdue === 1 ? ' is' : ' are') + ' past the due date. ' +
+        'Please treat ' + (overdue === 1 ? 'it' : 'these') + ' as a priority and share an update at the earliest.', '');
+    }
+    if (shareScope === '') {
+      lines.push('Please let me know if you need any further information.');
+    } else {
+      lines.push('Please reply to this email with a status update, or let me know if you need any support or clarification.');
+    }
+    lines.push('', 'Thanks & Regards,', settings.senderName || '[Your Name]');
     return lines.join('\n');
   }
 
@@ -2091,12 +2177,12 @@
   const openWhatsAppText = () =>
     window.open('https://wa.me/?text=' + encodeURIComponent(shareText('whatsapp')), '_blank', 'noopener');
   const openEmailText = () => {
-    window.location.href = 'mailto:?subject=' + encodeURIComponent(shareTitle()) +
-      '&body=' + encodeURIComponent(shareText('plain'));
+    window.location.href = 'mailto:?subject=' + encodeURIComponent(emailSubject()) +
+      '&body=' + encodeURIComponent(emailBody());
   };
 
   function shareImage(channel) {
-    const text = shareText(channel === 'mail' ? 'plain' : 'whatsapp');
+    const text = channel === 'mail' ? emailBody() : shareText('whatsapp');
     const openText = channel === 'mail' ? openEmailText : openWhatsAppText;
     const fallback = () => {
       saveShareImage();
@@ -2105,7 +2191,7 @@
     };
     if (!canShareFile()) { fallback(); return; }
     // Opens the phone's share sheet; pick WhatsApp or your mail app (Gmail, Outlook…).
-    navigator.share({ files: [shareFile], title: shareTitle(), text: text })
+    navigator.share({ files: [shareFile], title: channel === 'mail' ? emailSubject() : shareTitle(), text: text })
       .then(() => els.shareDialog.close())
       .catch((e) => { if (e && e.name !== 'AbortError') fallback(); });
   }
@@ -2138,6 +2224,10 @@
 
   els.soundToggle.addEventListener('change', () => {
     settings.sound = els.soundToggle.checked;
+    saveSettings();
+  });
+  els.senderName.addEventListener('input', () => {
+    settings.senderName = els.senderName.value.replace(/\s+/g, ' ').trim();
     saveSettings();
   });
   els.testSound.addEventListener('click', () => playAlertSound(true));
