@@ -95,6 +95,31 @@
   .filter svg { width: 15px; height: 15px; }
   .filters + .filters { padding-top: 8px; }
 
+  .search { position: relative; margin: 12px 16px 0; }
+  .search-icon {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    color: var(--faint); pointer-events: none; display: flex;
+  }
+  .search-icon svg { width: 18px; height: 18px; }
+  .search input {
+    width: 100%; font: inherit; font-size: 16px; color: var(--text);
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 10px 40px; min-height: 44px; -webkit-appearance: none; appearance: none;
+  }
+  .search input::-webkit-search-cancel-button { display: none; }
+  .search input:focus { background: var(--bg); border-color: var(--primary); }
+  .search-clear {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    background: none; border: 0; color: var(--muted); padding: 6px; border-radius: 6px;
+  }
+  .search-clear:hover { background: var(--border); }
+  .search-clear svg { width: 18px; height: 18px; display: block; }
+  .search-kbd {
+    display: none; position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+    font: inherit; font-size: 13px; color: var(--faint); padding: 0 7px;
+    border: 1px solid var(--border); border-radius: 5px; pointer-events: none;
+  }
+
   .banner {
     margin: 12px 16px 0; padding: 10px 12px; border-radius: var(--radius);
     background: var(--danger-soft); color: var(--danger); font-size: 16px;
@@ -343,6 +368,8 @@
     h1 { font-size: 32px; }
     .progress { margin-top: 18px; }
 
+    .search { margin: 16px 24px 0; }
+    .search input:placeholder-shown ~ .search-kbd { display: block; }
     .filters { flex-wrap: wrap; overflow: visible; padding: 16px 24px 0; }
     .filters + .filters { padding-top: 12px; border-top: 1px dashed var(--border); margin-top: 12px; }
     .filter:hover[aria-pressed="false"] { border-color: var(--primary); color: var(--primary); }
@@ -415,6 +442,12 @@
       </div>
     </div>
   </header>
+  <div class="search" id="search-wrap" role="search">
+    <span class="search-icon" id="search-icon"></span>
+    <input type="search" id="search-input" placeholder="Search tasks" autocomplete="off" aria-label="Search tasks" enterkeyhint="search">
+    <kbd class="search-kbd">/</kbd>
+    <button type="button" class="search-clear" id="search-clear" aria-label="Clear search" hidden></button>
+  </div>
   <div class="filters" id="filters" role="toolbar" aria-label="Filter by category" hidden></div>
   <div class="filters" id="people-filters" role="toolbar" aria-label="Filter by team member" hidden></div>
   <div class="banner" id="banner" role="alert" hidden></div>
@@ -673,6 +706,7 @@
     share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>',
     user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>',
     mail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6l-10 7L2 6"/></svg>',
+    search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>',
   };
 
   const $ = (id) => document.getElementById(id);
@@ -685,6 +719,8 @@
     progressFill: $('progress-fill'),
     filters: $('filters'),
     peopleFilters: $('people-filters'),
+    searchInput: $('search-input'),
+    searchClear: $('search-clear'),
     assigneeInput: $('assignee-input'),
     sharePersonWrap: $('share-person-wrap'),
     sharePerson: $('share-person'),
@@ -751,6 +787,8 @@
   els.settingsBtn.innerHTML = ICONS.settings + '<span>Settings</span>';
   els.shareBtn.innerHTML = ICONS.share + '<span>Share</span>';
   els.shareClose.innerHTML = ICONS.close;
+  $('search-icon').innerHTML = ICONS.search;
+  els.searchClear.innerHTML = ICONS.close;
   document.querySelectorAll('[data-icon]').forEach((el) => { el.outerHTML = ICONS[el.dataset.icon]; });
 
   els.categoryInput.append(new Option('No category', 'none'));
@@ -1108,6 +1146,15 @@
   let dragging = false;
   let activeFilter = 'all';
   let activePerson = ALL_PEOPLE;
+  let searchQuery = '';
+
+  // Every word typed must appear somewhere in the title, notes, assignee or category.
+  function matchesSearch(task) {
+    if (!searchQuery) return true;
+    const category = has(CATEGORIES, task.category) ? CATEGORIES[task.category].label : '';
+    const haystack = [task.title, task.notes, task.assignee, category].join(' ').toLowerCase();
+    return searchQuery.split(/\s+/).every((word) => haystack.includes(word));
+  }
 
   // Changes when the overdue set or the calendar day changes, so the clock tick
   // only re-renders the list when something visible would differ.
@@ -1138,14 +1185,20 @@
     renderPeopleFilters();
 
     const matchesFilter = (t) =>
-      (activeFilter === 'all' || t.category === activeFilter) && matchesPerson(t, activePerson);
+      (activeFilter === 'all' || t.category === activeFilter) && matchesPerson(t, activePerson) &&
+      matchesSearch(t);
     const pending = allPending.filter(matchesFilter).sort(byDueThenPriority);
     const completed = allCompleted.filter(matchesFilter).sort(byDueThenPriority);
 
     els.pendingCount.textContent = pending.length;
     els.pendingList.replaceChildren(...pending.map((t) => taskElement(t, isOverdue(t, now))));
     els.empty.hidden = pending.length > 0;
-    if (activeFilter === 'all' && activePerson === ALL_PEOPLE) {
+    if (searchQuery) {
+      els.emptyTitle.textContent = 'No pending tasks match "' + els.searchInput.value.trim() + '"';
+      els.emptyText.textContent = completed.length
+        ? 'Matching completed tasks are shown below.'
+        : 'Try a different word, or clear the search.';
+    } else if (activeFilter === 'all' && activePerson === ALL_PEOPLE) {
       els.emptyTitle.textContent = 'All caught up';
       els.emptyText.textContent = window.matchMedia('(min-width: 1024px)').matches
         ? 'Click "New task" or press N to add a task for today.'
@@ -1546,6 +1599,46 @@
     e.preventDefault();
     openTaskDialog(null);
   });
+
+  /* ---------- Search ---------- */
+
+  function setSearch(value) {
+    searchQuery = value.trim().toLowerCase();
+    els.searchClear.hidden = value === '';
+    render();
+  }
+
+  function clearSearch() {
+    els.searchInput.value = '';
+    setSearch('');
+  }
+
+  els.searchInput.addEventListener('input', () => setSearch(els.searchInput.value));
+  els.searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      if (els.searchInput.value) clearSearch();
+      else els.searchInput.blur();
+    } else if (e.key === 'Enter') {
+      els.searchInput.blur(); // hides the phone keyboard so results are visible
+    }
+  });
+  els.searchClear.addEventListener('click', () => {
+    clearSearch();
+    els.searchInput.focus();
+  });
+
+  // Laptop shortcut: press / to jump to the search box.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (document.querySelector('dialog[open]')) return;
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) return;
+    e.preventDefault();
+    els.searchInput.focus();
+    els.searchInput.select();
+  });
+
   els.taskClose.addEventListener('click', closeTaskDialog);
   els.taskCancel.addEventListener('click', closeTaskDialog);
   els.taskDialog.addEventListener('click', (e) => {
